@@ -1,56 +1,51 @@
 import React from 'react';
 import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 import {faMoon, faSun} from '@fortawesome/free-solid-svg-icons';
+import {themeService} from '../services/themeService';
 
 export default class ThemeSwitcher extends React.Component {
 
     constructor() {
         super();
 
-        //Get HTML node
-        let htmlNode = document.querySelector('html');
-        // Check if we are currently using dark-mode
-        let isDark = htmlNode.classList.contains("dark-mode");
-        // Check local storage for saved property 'dark-mode' to achieve persistance
-        let shouldBeDark = (localStorage.getItem('dark-mode') === 'true');
-        
-        // If we have changed to dark-mode before (it was saved in local storage) and page is currently not using dark-mode (default load/reload)
-        // Add class "dark-mode" to html node and change isDark to true
-        if (shouldBeDark && !isDark)
-        {
-            htmlNode.classList.add("dark-mode");
-            isDark = true;
-        }
-        // Create initial state based on isDark
-        this.state = { darkTheme: isDark };
+        // Create initial state, themeService.lastValue() should always be set, since we are initializing theme in root component
+        this.state = { darkTheme: themeService.lastValue() || false };
         // Bind this to changeTheme function so we can access state
         this.changeTheme = this.changeTheme.bind(this);
     }
 
+    // React API, when component is mounted we subscribe to themeService
+    componentDidMount() {
+        this.subscription = themeService.getThemeMode().subscribe(setToDark => {
+            // Prevent re-rendering when we get request to change state to current state
+            if (setToDark !== this.state.darkTheme)
+            {
+                this.setState({ darkTheme: setToDark });
+            }
+        });
+    }
+
+    // React API, when component is to be unmounted we unsubscribe from themeService
+    componentWillUnmount() {
+        this.subscription.unsubscribe();
+    }
+
+    // React API called when state is changed
     render() {
         // If state.darkTheme is true, show faSun icon with background color #FFA500 otherwise faMoon with background color #4D5B6B
+        const icon = this.state.darkTheme ? faSun : faMoon;
+        const color = this.state.darkTheme ? '#FFA500' : '#4D5B6B';
         // Register changeTheme function to button onClick event
         return (
             <button className="app__dark-mode-btn icon level-right" onClick={this.changeTheme}>
-                <FontAwesomeIcon icon={this.state.darkTheme ? faSun : faMoon} color={this.state.darkTheme ? '#FFA500' : '#4D5B6B'}/>
+                <FontAwesomeIcon icon={icon} color={color}/>
             </button>
         );
     }
 
+    // Helper function that will notify themeService about theme change request
     changeTheme() {
-        // Update local storage with oposite value of current state.darkTheme
-        localStorage.setItem('dark-mode', (!this.state.darkTheme).toString());
-        // Switch to light
-        if (this.state.darkTheme)
-        {
-            document.querySelector('html').classList.remove('dark-mode');
-        }
-        // Switch to dark
-        else
-        {
-            document.querySelector('html').classList.add('dark-mode');
-        }
-        // Update state to rerender button
-        this.setState({...this.state, darkTheme: !this.state.darkTheme});
+        themeService.setMode(!this.state.darkTheme);
     }
+
 }
